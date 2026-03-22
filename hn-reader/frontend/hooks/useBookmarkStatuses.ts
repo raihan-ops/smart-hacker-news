@@ -2,10 +2,11 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { queryKeys } from '@/lib/queryKeys';
 
 export function useBookmarkStatuses(storyIds: number[]) {
   return useQuery<Record<number, boolean>>({
-    queryKey: ['bookmarks', 'bulk', ...storyIds.sort()],
+    queryKey: queryKeys.bookmarks.bulkStatus(storyIds),
     queryFn: async () => {
       if (storyIds.length === 0) return {};
       const data = await api.checkMultipleBookmarks(storyIds);

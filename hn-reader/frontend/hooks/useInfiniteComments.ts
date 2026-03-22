@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Comment, Story } from '@/types';
 
 interface CommentsPage {
@@ -15,7 +16,7 @@ interface CommentsPage {
 
 export function useInfiniteComments(storyId: number, depth: number | 'all' = 1, limit = 20) {
   return useInfiniteQuery<CommentsPage>({
-    queryKey: ['comments', storyId, depth],
+    queryKey: queryKeys.comments.infinite(storyId, depth),
     queryFn: async ({ pageParam = 0 }) => {
       const data = await api.getCommentsPaginated(
         storyId,

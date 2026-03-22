@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
 import { Story } from '@/types';
+import { routes } from '@/lib/routes';
 import BookmarkButton from './BookmarkButton';
 
 interface StoryCardProps {
@@ -12,11 +14,24 @@ interface StoryCardProps {
 }
 
 export default function StoryCard({ story, rank, isBookmarked }: StoryCardProps) {
+  const router = useRouter();
   const timeAgo = formatDistanceToNow(new Date(story.time * 1000), { addSuffix: true });
   const domain = story.url ? new URL(story.url).hostname.replace('www.', '') : null;
 
   return (
-    <article className="border-b border-gray-200 py-4 hover:bg-gray-50 transition-colors">
+    <article
+      className="mt-2 cursor-pointer rounded-xl border border-transparent px-2 py-2 transition-colors hover:border-slate-200 hover:bg-slate-200/40"
+      onClick={() => router.push(routes.story.detail(story.id))}
+      role="link"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          router.push(routes.story.detail(story.id));
+        }
+      }}
+      aria-label={`Open story ${story.title}`}
+    >
       <div className="flex gap-3">
         {rank && (
           <span className="text-gray-400 font-mono text-sm w-6 flex-shrink-0">
@@ -27,25 +42,16 @@ export default function StoryCard({ story, rank, isBookmarked }: StoryCardProps)
           {/* Title and URL */}
           <div className="flex items-start gap-2">
             <h2 className="text-base font-medium text-gray-900 flex-1">
-              {story.url ? (
-                <a
-                  href={story.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-orange-500 transition-colors"
-                >
-                  {story.title}
-                </a>
-              ) : (
-                <Link href={`/story/${story.id}`} className="hover:text-orange-500">
-                  {story.title}
-                </Link>
-              )}
+              <Link href={routes.story.detail(story.id)} className="hover:text-orange-500 transition-colors" onClick={(event) => event.stopPropagation()}>
+                {story.title}
+              </Link>
               {domain && (
                 <span className="ml-2 text-xs text-gray-500">({domain})</span>
               )}
             </h2>
-            <BookmarkButton storyId={story.id} initialBookmarked={isBookmarked} />
+            <div onClick={(event) => event.stopPropagation()}>
+              <BookmarkButton storyId={story.id} initialBookmarked={isBookmarked} />
+            </div>
           </div>
 
           {/* Metadata */}
@@ -54,7 +60,7 @@ export default function StoryCard({ story, rank, isBookmarked }: StoryCardProps)
             <span>by {story.author}</span>
             <span>{timeAgo}</span>
             <Link
-              href={`/story/${story.id}`}
+              href={routes.story.detail(story.id)}
               className="hover:text-orange-500 transition-colors"
             >
               {story.commentCount} comments

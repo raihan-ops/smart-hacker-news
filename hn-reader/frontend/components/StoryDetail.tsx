@@ -13,15 +13,15 @@ export default function StoryDetail({ story }: StoryDetailProps) {
   const domain = story.url ? new URL(story.url).hostname.replace('www.', '') : null;
 
   return (
-    <article className="bg-white rounded-lg border border-gray-200 p-6">
+    <article className="card-surface p-4 sm:p-6">
       {/* Title */}
-      <h1 className="text-2xl font-bold text-gray-900 mb-3">
+      <h1 className="mb-3 text-xl font-bold text-gray-900 sm:text-2xl">
         {story.url ? (
           <a
             href={story.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-orange-500 transition-colors"
+            className="transition-colors hover:text-[var(--brand)]"
           >
             {story.title}
           </a>
@@ -34,7 +34,7 @@ export default function StoryDetail({ story }: StoryDetailProps) {
       </h1>
 
       {/* Metadata */}
-      <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
         <span>{story.points} points</span>
         <span>by {story.author}</span>
         <span>{timeAgo}</span>

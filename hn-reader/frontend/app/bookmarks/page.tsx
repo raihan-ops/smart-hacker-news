@@ -1,16 +1,15 @@
 'use client';
 
-import { useEffect, Suspense } from 'react';
-import Link from 'next/link';
+import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
-import { Bookmark } from '@/types';
+import { useBookmarksPage } from '@/hooks/bookmarks/useBookmarksPage';
 import SearchBar from '@/components/SearchBar';
 import StoryCard from '@/components/StoryCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import Pagination from '@/components/Pagination';
-import { useState } from 'react';
+import { ButtonLink } from '@/components/ui/Button';
+import { routes } from '@/lib/routes';
 
 function BookmarksContent() {
   const searchParams = useSearchParams();
@@ -18,34 +17,18 @@ function BookmarksContent() {
   const search = searchParams.get('search') || '';
   const page = parseInt(searchParams.get('page') || '1', 10);
 
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalPages, setTotalPages] = useState(1);
+  const { data, isLoading: loading, error, refetch } = useBookmarksPage(search, page, 30);
 
-  const fetchBookmarks = async (pageNum: number, searchQuery: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await api.getBookmarks(searchQuery, pageNum, 30);
-      setBookmarks(response.bookmarks);
-      setTotalPages(response.totalPages);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch bookmarks');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBookmarks(page, search);
-  }, [page, search]);
+  const bookmarks = data?.bookmarks ?? [];
+  const totalPages = data?.totalPages ?? 1;
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', newPage.toString());
     router.push(`?${params.toString()}`, { scroll: false });
   };
+
+  const errorMessage = error instanceof Error ? error.message : error ? String(error) : null;
 
   // Convert bookmarks to story format for StoryCard
   const bookmarkStories = bookmarks.map(b => ({
@@ -59,21 +42,18 @@ function BookmarksContent() {
   }));
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="page-shell">
       {/* Header */}
       <header className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shadow-lg">
-        <div className="max-w-5xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-4 flex-wrap">
-              <Link
-                href="/"
-                className="px-4 py-2.5 bg-white text-slate-900 rounded-lg hover:bg-orange-100 transition-colors font-semibold shadow-sm"
-              >
+        <div className="content-shell py-4 sm:py-5">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <ButtonLink href={routes.home()} variant="secondary" size="sm">
                 ← Home
-              </Link>
+              </ButtonLink>
               <div>
                 <p className="text-xs uppercase tracking-[0.22em] text-orange-300">Saved</p>
-                <h1 className="text-2xl font-bold leading-tight">My Bookmarks</h1>
+                <h1 className="text-xl font-bold leading-tight">My Bookmarks</h1>
               </div>
             </div>
           </div>
@@ -81,32 +61,29 @@ function BookmarksContent() {
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="content-shell py-6">
         {loading && (
           <div className="py-12">
             <LoadingSpinner size="lg" />
           </div>
         )}
 
-        {error && <ErrorMessage message={error} onRetry={() => fetchBookmarks(page, search)} />}
+        {errorMessage && <ErrorMessage message={errorMessage} onRetry={() => refetch()} />}
 
         {!loading && !error && bookmarkStories.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-600 text-lg">
               {search ? 'No bookmarks match your search.' : 'No bookmarks yet.'}
             </p>
-            <Link
-              href="/"
-              className="mt-4 inline-block px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-            >
+            <ButtonLink href={routes.home()} className="mt-4">
               Browse Stories
-            </Link>
+            </ButtonLink>
           </div>
         )}
 
         {!loading && !error && bookmarkStories.length > 0 && (
           <>
-            <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-200">
+            <div className="card-surface divide-y divide-gray-200 px-3 sm:px-4">
               {bookmarkStories.map((story) => (
                 <StoryCard key={story.id} story={story} isBookmarked={true} />
               ))}

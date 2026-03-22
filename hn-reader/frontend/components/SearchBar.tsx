@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { routes } from '@/lib/routes';
 
 export default function SearchBar() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function SearchBar() {
     } else {
       params.delete('search');
     }
-    router.push(`/bookmarks?${params.toString()}`);
+    router.push(`${routes.bookmarks.index()}?${params.toString()}`);
   };
 
   return (

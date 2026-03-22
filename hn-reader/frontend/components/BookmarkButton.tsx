@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
+import { useBookmarkQuery } from '@/hooks/bookmarks/useBookmarkQuery';
+import { useToggleBookmark } from '@/hooks/bookmarks/useToggleBookmark';
 
 interface BookmarkButtonProps {
   storyId: number;
@@ -9,49 +9,25 @@ interface BookmarkButtonProps {
 }
 
 export default function BookmarkButton({ storyId, initialBookmarked }: BookmarkButtonProps) {
-  const [bookmarked, setBookmarked] = useState(initialBookmarked ?? false);
-  const [loading, setLoading] = useState(false);
+  const { data, isLoading: isChecking } = useBookmarkQuery(storyId);
+  const toggleMutation = useToggleBookmark();
 
-  useEffect(() => {
-    if (typeof initialBookmarked === 'boolean') {
-      setBookmarked(initialBookmarked);
-      return;
-    }
+  // Use initialBookmarked if provided, otherwise use query data
+  const bookmarked = initialBookmarked ?? data?.exists ?? false;
+  const loading = isChecking || toggleMutation.isPending;
 
-    const checkBookmark = async () => {
-      try {
-        const { exists } = await api.checkBookmark(storyId);
-        setBookmarked(exists);
-      } catch (error) {
-        console.error('Failed to check bookmark status:', error);
-      }
-    };
-
-    checkBookmark();
-  }, [storyId, initialBookmarked]);
-
-  const toggleBookmark = async () => {
-    try {
-      setLoading(true);
-      if (bookmarked) {
-        await api.deleteBookmark(storyId);
-        setBookmarked(false);
-      } else {
-        await api.createBookmark(storyId);
-        setBookmarked(true);
-      }
-    } catch (error) {
-      console.error('Failed to toggle bookmark:', error);
-    } finally {
-      setLoading(false);
-    }
+  const toggleBookmark = () => {
+    toggleMutation.mutate({ storyId, isBookmarked: bookmarked });
   };
 
   return (
     <button
-      onClick={toggleBookmark}
+      onClick={(event) => {
+        event.stopPropagation();
+        toggleBookmark();
+      }}
       disabled={loading}
-      className="text-gray-400 hover:text-orange-500 transition-colors disabled:opacity-50"
+      className="rounded-md px-1.5 py-1 text-lg leading-none text-gray-400 transition-colors hover:text-[var(--brand)] disabled:opacity-50"
       aria-label={bookmarked ? 'Remove bookmark' : 'Add bookmark'}
     >
       {bookmarked ? '★' : '☆'}

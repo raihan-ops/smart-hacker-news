@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Comment as CommentType } from '@/types';
 import { api } from '@/lib/api';
+import { Button } from './ui/Button';
 
 interface CommentProps {
   comment: CommentType;
@@ -19,7 +20,7 @@ export default function Comment({ comment, storyId, depth = 0 }: CommentProps) {
   const [error, setError] = useState<string | null>(null);
 
   const timeAgo = formatDistanceToNow(new Date(comment.time * 1000), { addSuffix: true });
-  const indentClass = depth > 0 ? 'ml-4 border-l-2 border-gray-200 pl-4' : '';
+  const leftPadding = Math.min(depth * 18, 54);
 
   const loadReplies = async () => {
     try {
@@ -36,35 +37,37 @@ export default function Comment({ comment, storyId, depth = 0 }: CommentProps) {
   };
 
   return (
-    <div className={`py-3 ${indentClass}`}>
+    <div className="py-2.5" style={{ paddingLeft: `${leftPadding}px` }}>
       {/* Comment header */}
-      <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="font-medium hover:text-orange-500 transition-colors"
+          className="rounded-md border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-600 transition-colors hover:border-[var(--brand)] hover:text-[var(--brand)]"
         >
-          {collapsed ? '[+]' : '[-]'}
+          {collapsed ? '+' : '-'}
         </button>
-        <span className="font-medium">{comment.author}</span>
+        <span className="font-semibold text-slate-900">{comment.author}</span>
         <span>{timeAgo}</span>
+        {replies.length > 0 && (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+            {replies.length} repl{replies.length === 1 ? 'y' : 'ies'}
+          </span>
+        )}
       </div>
 
       {/* Comment body */}
       {!collapsed && (
         <>
           <div
-            className="prose prose-sm max-w-none text-gray-800"
+            className="prose prose-sm card-surface max-w-none p-3 text-gray-800 sm:p-4"
             dangerouslySetInnerHTML={{ __html: comment.text }}
           />
 
           {/* Load replies button */}
           {hasUnloadedChildren && !loadingReplies && (
-            <button
-              onClick={loadReplies}
-              className="mt-2 px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-            >
+            <Button onClick={loadReplies} variant="outline" size="sm" className="mt-2">
               Load replies
-            </button>
+            </Button>
           )}
 
           {/* Loading state */}
@@ -78,7 +81,7 @@ export default function Comment({ comment, storyId, depth = 0 }: CommentProps) {
               {error}{' '}
               <button
                 onClick={loadReplies}
-                className="underline hover:no-underline"
+                className="font-medium underline hover:no-underline"
               >
                 Retry
               </button>
@@ -87,7 +90,7 @@ export default function Comment({ comment, storyId, depth = 0 }: CommentProps) {
 
           {/* Nested comments */}
           {replies.length > 0 && (
-            <div className="mt-3">
+            <div className="mt-3 border-l-2 border-slate-200 pl-3">
               {replies.map((child) => (
                 <Comment key={child.id} comment={child} storyId={storyId} depth={depth + 1} />
               ))}

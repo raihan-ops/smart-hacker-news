@@ -16,7 +16,7 @@ export default function CommentTree({ comments, storyId }: CommentTreeProps) {
   }
 
   return (
-    <div className="divide-y divide-gray-200">
+    <div className="space-y-1">
       {comments.map((comment) => (
         <Comment key={comment.id} comment={comment} storyId={storyId} />
       ))}

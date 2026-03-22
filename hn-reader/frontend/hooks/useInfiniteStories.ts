@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Story } from '@/types';
 
 interface StoriesPage {
@@ -15,7 +16,7 @@ interface StoriesPage {
 
 export function useInfiniteStories(type: 'top' | 'new' | 'best' = 'top', limit = 30) {
   return useInfiniteQuery<StoriesPage>({
-    queryKey: ['stories', type],
+    queryKey: queryKeys.stories.infinite(type),
     queryFn: async ({ pageParam = 1 }) => {
       const data = await api.getStories(type, pageParam as number, limit);
       return data as StoriesPage;

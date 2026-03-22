@@ -1,5 +1,7 @@
 import axios, { AxiosError, AxiosInstance } from 'axios';
 import type {
+  ApiResponse,
+  Bookmark,
   Story,
   Comment,
   StoriesResponse,
@@ -33,9 +35,17 @@ export class ApiError extends Error {
   }
 }
 
+function unwrapApiResponse<T>(response: ApiResponse<T>): T {
+  if (!response.success) {
+    throw new ApiError(response.error.message, undefined, response.error);
+  }
+
+  return response.data;
+}
+
 function handleApiError(error: unknown): never {
   if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<{ error?: string; message?: string }>;
+    const axiosError = error as AxiosError<ApiResponse<unknown> | { error?: string; message?: string }>;
 
     if (axiosError.code === 'ECONNABORTED' || /timeout/i.test(axiosError.message)) {
       throw new ApiError(
@@ -45,9 +55,14 @@ function handleApiError(error: unknown): never {
       );
     }
 
+    const envelope = axiosError.response?.data;
+    if (envelope && typeof envelope === 'object' && 'success' in envelope && envelope.success === false) {
+      throw new ApiError(envelope.error.message, axiosError.response?.status, envelope.error);
+    }
+
     const message =
-      axiosError.response?.data?.message ||
-      axiosError.response?.data?.error ||
+      (axiosError.response?.data as { message?: string; error?: string } | undefined)?.message ||
+      (axiosError.response?.data as { message?: string; error?: string } | undefined)?.error ||
       axiosError.message;
     throw new ApiError(message, axiosError.response?.status, error);
   }
@@ -59,10 +74,10 @@ export const api = {
   // Stories
   async getStories(type: 'top' | 'new' | 'best' = 'top', page = 1, limit = 30) {
     try {
-      const { data } = await apiClient.get<StoriesResponse>('/api/stories', {
+      const { data } = await apiClient.get<ApiResponse<StoriesResponse>>('/api/stories', {
         params: { type, page, limit },
       });
-      return data;
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }
@@ -70,8 +85,8 @@ export const api = {
 
   async getStory(id: number) {
     try {
-      const { data } = await apiClient.get<Story>(`/api/stories/${id}`);
-      return data;
+      const { data } = await apiClient.get<ApiResponse<Story>>(`/api/stories/${id}`);
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }
@@ -79,14 +94,14 @@ export const api = {
 
   async getComments(storyId: number, depth: number | 'all' = 1) {
     try {
-      const { data } = await apiClient.get<CommentsResponse>(
+      const { data } = await apiClient.get<ApiResponse<CommentsResponse>>(
         `/api/stories/${storyId}/comments`,
         {
           params: { depth },
           timeout: 60000, // 60s for complex comment trees
         }
       );
-      return data;
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }
@@ -99,14 +114,14 @@ export const api = {
     offset = 0
   ) {
     try {
-      const { data } = await apiClient.get(
+      const { data } = await apiClient.get<ApiResponse<CommentsResponse>>(
         `/api/stories/${storyId}/comments`,
         {
           params: { depth, limit, offset },
           timeout: 60000,
         }
       );
-      return data;
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }
@@ -114,14 +129,14 @@ export const api = {
 
   async getCommentReplies(storyId: number, commentId: number, depth: number | 'all' = 1) {
     try {
-      const { data } = await apiClient.get<{ commentId: number; replies: Comment[]; count: number }>(
+      const { data } = await apiClient.get<ApiResponse<{ commentId: number; replies: Comment[]; count: number }>>(
         `/api/stories/${storyId}/comments/${commentId}/replies`,
         {
           params: { depth },
           timeout: 30000,
         }
       );
-      return data;
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }
@@ -130,10 +145,10 @@ export const api = {
   // Bookmarks
   async getBookmarks(search = '', page = 1, limit = 30) {
     try {
-      const { data } = await apiClient.get<BookmarksResponse>('/api/bookmarks', {
+      const { data } = await apiClient.get<ApiResponse<BookmarksResponse>>('/api/bookmarks', {
         params: { search, page, limit },
       });
-      return data;
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }
@@ -141,10 +156,10 @@ export const api = {
 
   async checkBookmark(storyId: number) {
     try {
-      const { data } = await apiClient.get<BookmarkExistsResponse>(
+      const { data } = await apiClient.get<ApiResponse<BookmarkExistsResponse>>(
         `/api/bookmarks/${storyId}/exists`
       );
-      return data;
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }
@@ -152,11 +167,11 @@ export const api = {
 
   async checkMultipleBookmarks(storyIds: number[]) {
     try {
-      const { data } = await apiClient.post<Record<number, boolean>>(
+      const { data } = await apiClient.post<ApiResponse<Record<number, boolean>>>(
         '/api/bookmarks/check-multiple',
         { storyIds }
       );
-      return data;
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }
@@ -164,8 +179,8 @@ export const api = {
 
   async createBookmark(storyId: number) {
     try {
-      const { data } = await apiClient.post('/api/bookmarks', { storyId });
-      return data;
+      const { data } = await apiClient.post<ApiResponse<{ message: string; bookmark: Bookmark }>>('/api/bookmarks', { storyId });
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }
@@ -173,8 +188,8 @@ export const api = {
 
   async deleteBookmark(storyId: number) {
     try {
-      const { data } = await apiClient.delete(`/api/bookmarks/${storyId}`);
-      return data;
+      const { data } = await apiClient.delete<ApiResponse<{ message: string }>>(`/api/bookmarks/${storyId}`);
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }
@@ -183,14 +198,14 @@ export const api = {
   // Summarization
   async generateSummary(storyId: number) {
     try {
-      const { data } = await apiClient.post<SummaryResponse>(
+      const { data } = await apiClient.post<ApiResponse<SummaryResponse>>(
         `/api/summarize/${storyId}`,
         undefined,
         {
           timeout: 120000,
         }
       );
-      return data;
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }
@@ -198,10 +213,10 @@ export const api = {
 
   async getSummary(storyId: number) {
     try {
-      const { data } = await apiClient.get<SummaryResponse>(
+      const { data } = await apiClient.get<ApiResponse<SummaryResponse>>(
         `/api/summarize/${storyId}`
       );
-      return data;
+      return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);
     }

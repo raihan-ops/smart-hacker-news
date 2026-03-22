@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from './ui/Button';
+
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
@@ -44,15 +46,15 @@ export default function Pagination({
   const pages = getPageNumbers();
 
   return (
-    <div className="flex items-center justify-center gap-2 py-6">
+    <div className="flex flex-wrap items-center justify-center gap-2 py-6">
       {/* Previous button */}
-      <button
+      <Button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1 || isLoading}
-        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        variant="outline"
       >
         Previous
-      </button>
+      </Button>
 
       {/* Page numbers */}
       <div className="flex items-center gap-1">
@@ -73,9 +75,9 @@ export default function Pagination({
               key={pageNum}
               onClick={() => onPageChange(pageNum)}
               disabled={isLoading}
-              className={`min-w-[40px] px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+              className={`min-w-[40px] px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
                 isActive
-                  ? 'bg-orange-500 text-white'
+                  ? 'bg-[var(--brand)] text-white'
                   : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
@@ -86,13 +88,13 @@ export default function Pagination({
       </div>
 
       {/* Next button */}
-      <button
+      <Button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages || isLoading}
-        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        variant="outline"
       >
         Next
-      </button>
+      </Button>
     </div>
   );
 }

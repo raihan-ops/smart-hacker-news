@@ -84,5 +84,27 @@ export interface SummaryResponse {
   generatedAt: string;
 }
 
+export interface ApiSuccessResponse<T> {
+  success: true;
+  data: T;
+  meta: {
+    timestamp: string;
+  };
+}
+
+export interface ApiErrorResponse {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+  meta: {
+    timestamp: string;
+  };
+}
+
+export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+
 // Component prop types
 export type StoryType = 'top' | 'new' | 'best';

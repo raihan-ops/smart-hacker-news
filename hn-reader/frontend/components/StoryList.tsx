@@ -49,7 +49,7 @@ export default function StoryList({ type = 'top' }: StoryListProps) {
 
   return (
     <div>
-      <div className="divide-y divide-gray-200">
+      <div className="card-surface divide-y divide-slate-200 px-3 sm:px-4">
         {stories.map((story, index) => (
           <StoryCard
             key={story.id}
