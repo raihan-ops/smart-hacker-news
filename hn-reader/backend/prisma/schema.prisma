@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Bookmark {
+  id            Int       @id @default(autoincrement())
+  storyId       Int       @unique @map("story_id")
+  title         String
+  url           String?
+  author        String
+  points        Int
+  commentCount  Int       @map("comment_count")
+  createdAt     DateTime  @map("created_at")
+  bookmarkedAt  DateTime  @default(now()) @map("bookmarked_at")
+  summary       Summary?
+
+  @@index([storyId])
+  @@index([bookmarkedAt])
+  @@map("bookmarks")
+}
+
+model Summary {
+  id           Int      @id @default(autoincrement())
+  storyId      Int      @unique @map("story_id")
+  summaryText  String   @map("summary_text") @db.Text
+  keyPoints    Json     @map("key_points")
+  sentiment    String
+  createdAt    DateTime @default(now()) @map("created_at")
+  bookmark     Bookmark @relation(fields: [storyId], references: [storyId], onDelete: Cascade)
+
+  @@index([storyId])
+  @@map("summaries")
+}
