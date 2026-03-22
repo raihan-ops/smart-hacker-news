@@ -14,12 +14,12 @@ type CommentFetchState = {
 /**
  * Fetch top story IDs
  */
-export async function getTopStories(limit: number = 30): Promise<number[]> {
+export async function getTopStories(limit?: number): Promise<number[]> {
   try {
     const response = await axios.get<number[]>(`${HN_API_BASE}/topstories.json`, {
       timeout: TIMEOUT,
     });
-    return response.data.slice(0, limit);
+    return typeof limit === 'number' ? response.data.slice(0, limit) : response.data;
   } catch (error) {
     console.error('Error fetching top stories:', error);
     throw new Error('Failed to fetch top stories from Hacker News');
@@ -29,12 +29,12 @@ export async function getTopStories(limit: number = 30): Promise<number[]> {
 /**
  * Fetch new story IDs
  */
-export async function getNewStories(limit: number = 30): Promise<number[]> {
+export async function getNewStories(limit?: number): Promise<number[]> {
   try {
     const response = await axios.get<number[]>(`${HN_API_BASE}/newstories.json`, {
       timeout: TIMEOUT,
     });
-    return response.data.slice(0, limit);
+    return typeof limit === 'number' ? response.data.slice(0, limit) : response.data;
   } catch (error) {
     console.error('Error fetching new stories:', error);
     throw new Error('Failed to fetch new stories from Hacker News');
@@ -44,16 +44,38 @@ export async function getNewStories(limit: number = 30): Promise<number[]> {
 /**
  * Fetch best story IDs
  */
-export async function getBestStories(limit: number = 30): Promise<number[]> {
+export async function getBestStories(limit?: number): Promise<number[]> {
   try {
     const response = await axios.get<number[]>(`${HN_API_BASE}/beststories.json`, {
       timeout: TIMEOUT,
     });
-    return response.data.slice(0, limit);
+    return typeof limit === 'number' ? response.data.slice(0, limit) : response.data;
   } catch (error) {
     console.error('Error fetching best stories:', error);
     throw new Error('Failed to fetch best stories from Hacker News');
   }
+}
+
+/**
+ * Fetch story IDs by type with optional limit
+ */
+export async function getStoryIdsByType(type: 'top' | 'new' | 'best', limit?: number): Promise<number[]> {
+  let ids: number[];
+
+  switch (type) {
+    case 'new':
+      ids = await getNewStories(limit);
+      break;
+    case 'best':
+      ids = await getBestStories(limit);
+      break;
+    case 'top':
+    default:
+      ids = await getTopStories(limit);
+      break;
+  }
+
+  return limit ? ids.slice(0, limit) : ids;
 }
 
 /**
@@ -208,7 +230,7 @@ export async function getComments(
         const commentIndex = comments.length - 1;
         childFetchPromises.push({
           index: commentIndex,
-          promise: getComments(item.kids, maxDepth - 1, state),
+          promise: getComments(item.kids ?? [], maxDepth - 1, state),
         });
       } else {
         // Mark that children exist but weren't loaded

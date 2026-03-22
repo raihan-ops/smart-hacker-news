@@ -1,6 +1,8 @@
-import express, { Express, Request, Response, NextFunction } from 'express';
+import express, { Express, NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import { config } from './config/env';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { sendSuccess } from './utils/response';
 
 // Import routes (will be created next)
 import storiesRouter from './routes/stories';
@@ -27,7 +29,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
-  res.json({
+  sendSuccess(res, {
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
@@ -39,22 +41,7 @@ app.use('/api/stories', storiesRouter);
 app.use('/api/bookmarks', bookmarksRouter);
 app.use('/api/summarize', summarizeRouter);
 
-// 404 handler
-app.use((req: Request, res: Response) => {
-  res.status(404).json({
-    error: 'Not Found',
-    message: `Route ${req.method} ${req.path} not found`,
-  });
-});
-
-// Global error handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err);
-
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: config.server.nodeEnv === 'development' ? err.message : 'Something went wrong',
-  });
-});
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;

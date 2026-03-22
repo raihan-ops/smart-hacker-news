@@ -140,8 +140,10 @@ function normalizeSummaryResult(raw: unknown): SummaryResult {
   }
 
   const sentimentRaw = typeof data.sentiment === 'string' ? data.sentiment.trim().toLowerCase() : 'neutral';
-  const validSentiments = ['positive', 'negative', 'mixed', 'neutral'];
-  const sentiment = validSentiments.includes(sentimentRaw) ? sentimentRaw : 'neutral';
+  const validSentiments: SummaryResult['sentiment'][] = ['positive', 'negative', 'mixed', 'neutral'];
+  const sentiment: SummaryResult['sentiment'] = validSentiments.includes(sentimentRaw as SummaryResult['sentiment'])
+    ? (sentimentRaw as SummaryResult['sentiment'])
+    : 'neutral';
 
   if (!summary || !summary.trim()) {
     throw new Error('Invalid response format from AI');

@@ -1,5 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { getStories, getStory, getStoryWithComments, getCommentReplies } from '../services/hnClient';
+import { AppError } from '../errors/AppError';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { assertStoryType, getReplies, getStoryById, getStoryComments, listStories } from '../services/storyService';
+import { parseBoundedIntQuery, parseIntParam, parseNonNegativeIntQuery, readSingleValue } from '../utils/request';
+import { sendSuccess } from '../utils/response';
 
 const router = Router();
 
@@ -8,88 +12,42 @@ const router = Router();
  * Get list of stories with pagination
  * Query params: type (top|new|best), page (number), limit (number)
  */
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const type = (req.query.type as 'top' | 'new' | 'best') || 'top';
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 30;
+router.get(
+  '/',
+  asyncHandler(async (req: Request, res: Response) => {
+    const type = readSingleValue(req.query.type) ?? 'top';
+    assertStoryType(type);
 
-    // Validate parameters
-    if (!['top', 'new', 'best'].includes(type)) {
-      return res.status(400).json({
-        error: 'Invalid type parameter. Must be one of: top, new, best',
-      });
-    }
-
-    if (page < 1 || page > 100) {
-      return res.status(400).json({
-        error: 'Invalid page parameter. Must be between 1 and 100',
-      });
-    }
-
-    if (limit < 1 || limit > 100) {
-      return res.status(400).json({
-        error: 'Invalid limit parameter. Must be between 1 and 100',
-      });
-    }
-
-    const stories = await getStories(type, page, limit);
-
-    // HN API typically has around 500-1000 stories per category, but we cap at reasonable limit
-    // Assume roughly 500 stories available per type
-    const estimatedTotalStories = 500;
-    const totalPages = Math.ceil(estimatedTotalStories / limit);
-
-    res.json({
-      stories,
-      page,
-      limit,
-      type,
-      hasMore: stories.length === limit,
-      totalFetched: stories.length,
-      totalCount: estimatedTotalStories,
-      totalPages,
+    const page = parseBoundedIntQuery(req.query.page, {
+      defaultValue: 1,
+      min: 1,
+      max: 100,
+      label: 'page',
     });
-  } catch (error) {
-    console.error('Error fetching stories:', error);
-    res.status(500).json({
-      error: 'Failed to fetch stories',
-      message: error instanceof Error ? error.message : 'Unknown error',
+    const limit = parseBoundedIntQuery(req.query.limit, {
+      defaultValue: 30,
+      min: 1,
+      max: 100,
+      label: 'limit',
     });
-  }
-});
+
+    const result = await listStories({ type, page, limit });
+    sendSuccess(res, result);
+  })
+);
 
 /**
  * GET /api/stories/:id
  * Get a single story by ID
  */
-router.get('/:id', async (req: Request, res: Response) => {
-  try {
-    const storyId = parseInt(req.params.id);
-
-    if (isNaN(storyId)) {
-      return res.status(400).json({
-        error: 'Invalid story ID',
-      });
-    }
-
-    const story = await getStory(storyId);
-
-    if (!story) {
-      return res.status(404).json({
-        error: 'Story not found',
-      });
-    }
-
-    res.json(story);
-  } catch (error) {
-    console.error('Error fetching story:', error);
-    res.status(500).json({
-      error: 'Failed to fetch story',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
+router.get(
+  '/:id',
+  asyncHandler(async (req: Request, res: Response) => {
+    const storyId = parseIntParam(req.params.id, 'story ID');
+    const story = await getStoryById(storyId);
+    sendSuccess(res, story);
+  })
+);
 
 /**
  * GET /api/stories/:id/comments
@@ -99,126 +57,67 @@ router.get('/:id', async (req: Request, res: Response) => {
  *   - limit (number) - Number of top-level comments to return (default: 20)
  *   - offset (number) - Skip first N comments (default: 0)
  */
-router.get('/:id/comments', async (req: Request, res: Response) => {
-  try {
-    const storyId = parseInt(req.params.id);
+router.get(
+  '/:id/comments',
+  asyncHandler(async (req: Request, res: Response) => {
+    const storyId = parseIntParam(req.params.id, 'story ID');
 
-    if (isNaN(storyId)) {
-      return res.status(400).json({
-        error: 'Invalid story ID',
-      });
-    }
-
-    // Parse depth parameter
-    let depth: number | undefined;
-    const depthParam = req.query.depth as string;
+    const depthParam = readSingleValue(req.query.depth);
+    let depth: number | undefined = 1;
 
     if (depthParam) {
       if (depthParam === 'all') {
-        depth = undefined; // Use default MAX_DEPTH
+        depth = undefined;
       } else {
-        depth = parseInt(depthParam);
-        if (isNaN(depth) || depth < 0) {
-          return res.status(400).json({
-            error: 'Invalid depth parameter. Must be a positive number or "all"',
-          });
+        const parsedDepth = Number.parseInt(depthParam, 10);
+        if (!Number.isInteger(parsedDepth) || parsedDepth < 0) {
+          throw new AppError(400, 'Invalid depth parameter. Must be a positive number or "all"', 'INVALID_DEPTH');
         }
+        depth = parsedDepth;
       }
-    } else {
-      depth = 1; // Default to top-level only for fast initial load
     }
 
-    // Parse pagination parameters
-    const limit = parseInt(req.query.limit as string) || 20;
-    const offset = parseInt(req.query.offset as string) || 0;
-
-    if (limit < 1 || limit > 100) {
-      return res.status(400).json({
-        error: 'Invalid limit parameter. Must be between 1 and 100',
-      });
-    }
-
-    if (offset < 0) {
-      return res.status(400).json({
-        error: 'Invalid offset parameter. Must be >= 0',
-      });
-    }
-
-    const { story, comments: allComments } = await getStoryWithComments(storyId, depth);
-
-    if (!story) {
-      return res.status(404).json({
-        error: 'Story not found',
-      });
-    }
-
-    // Apply pagination to top-level comments
-    const paginatedComments = allComments.slice(offset, offset + limit);
-    const hasMore = offset + limit < allComments.length;
-
-    res.json({
-      story,
-      comments: paginatedComments,
-      commentCount: allComments.length,
-      hasMore,
-      offset,
-      limit,
+    const limit = parseBoundedIntQuery(req.query.limit, {
+      defaultValue: 20,
+      min: 1,
+      max: 100,
+      label: 'limit',
     });
-  } catch (error) {
-    console.error('Error fetching comments:', error);
-    res.status(500).json({
-      error: 'Failed to fetch comments',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
+    const offset = parseNonNegativeIntQuery(req.query.offset, 0, 'offset');
+
+    const result = await getStoryComments({ storyId, depth, limit, offset });
+    sendSuccess(res, result);
+  })
+);
 
 /**
  * GET /api/stories/:id/comments/:commentId/replies
  * Get replies for a specific comment (lazy loading)
  */
-router.get('/:id/comments/:commentId/replies', async (req: Request, res: Response) => {
-  try {
-    const storyId = parseInt(req.params.id);
-    const commentId = parseInt(req.params.commentId);
+router.get(
+  '/:id/comments/:commentId/replies',
+  asyncHandler(async (req: Request, res: Response) => {
+    parseIntParam(req.params.id, 'story ID');
+    const commentId = parseIntParam(req.params.commentId, 'comment ID');
 
-    if (isNaN(storyId) || isNaN(commentId)) {
-      return res.status(400).json({
-        error: 'Invalid story ID or comment ID',
-      });
-    }
-
-    // Parse depth parameter for nested replies
-    let depth = 1; // Default to immediate children only
-    const depthParam = req.query.depth as string;
+    const depthParam = readSingleValue(req.query.depth);
+    let depth = 1;
 
     if (depthParam) {
       if (depthParam === 'all') {
-        depth = 999; // Effectively unlimited
+        depth = 999;
       } else {
-        depth = parseInt(depthParam);
-        if (isNaN(depth) || depth < 0) {
-          return res.status(400).json({
-            error: 'Invalid depth parameter. Must be a positive number or "all"',
-          });
+        const parsedDepth = Number.parseInt(depthParam, 10);
+        if (!Number.isInteger(parsedDepth) || parsedDepth < 0) {
+          throw new AppError(400, 'Invalid depth parameter. Must be a positive number or "all"', 'INVALID_DEPTH');
         }
+        depth = parsedDepth;
       }
     }
 
-    const replies = await getCommentReplies(commentId, depth);
-
-    res.json({
-      commentId,
-      replies,
-      count: replies.length,
-    });
-  } catch (error) {
-    console.error('Error fetching comment replies:', error);
-    res.status(500).json({
-      error: 'Failed to fetch comment replies',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
+    const result = await getReplies({ commentId, depth });
+    sendSuccess(res, result);
+  })
+);
 
 export default router;
