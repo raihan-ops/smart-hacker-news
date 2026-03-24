@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import StoryList from '@/components/StoryList';
+import StoryList from '@/components/features/stories/StoryList';
 import { StoryType } from '@/types';
 import { queryParams } from '@/lib/routes';
 

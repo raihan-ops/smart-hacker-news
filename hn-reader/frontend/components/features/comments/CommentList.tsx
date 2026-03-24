@@ -2,9 +2,9 @@
 
 import { useCommentsPagination } from '@/hooks/useCommentsPagination';
 import Comment from './Comment';
-import LoadingSpinner from './LoadingSpinner';
-import ErrorMessage from './ErrorMessage';
-import Pagination from './Pagination';
+import LoadingSpinner from '../../common/LoadingSpinner';
+import ErrorMessage from '../../common/ErrorMessage';
+import Pagination from '../../common/Pagination';
 
 interface CommentListProps {
   storyId: number;

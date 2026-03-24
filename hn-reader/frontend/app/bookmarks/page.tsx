@@ -3,11 +3,11 @@
 import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useBookmarksPage } from '@/hooks/bookmarks/useBookmarksPage';
-import SearchBar from '@/components/SearchBar';
-import StoryCard from '@/components/StoryCard';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import ErrorMessage from '@/components/ErrorMessage';
-import Pagination from '@/components/Pagination';
+import SearchBar from '@/components/features/search/SearchBar';
+import StoryCard from '@/components/features/stories/StoryCard';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import ErrorMessage from '@/components/common/ErrorMessage';
+import Pagination from '@/components/common/Pagination';
 import { ButtonLink } from '@/components/ui/Button';
 import { routes } from '@/lib/routes';
 

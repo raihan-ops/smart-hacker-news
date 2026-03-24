@@ -3,8 +3,8 @@
 import { useEffect, useRef } from 'react';
 import { useInfiniteComments } from '@/hooks/useInfiniteComments';
 import Comment from './Comment';
-import LoadingSpinner from './LoadingSpinner';
-import ErrorMessage from './ErrorMessage';
+import LoadingSpinner from '../../common/LoadingSpinner';
+import ErrorMessage from '../../common/ErrorMessage';
 
 interface InfiniteCommentTreeProps {
   storyId: number;

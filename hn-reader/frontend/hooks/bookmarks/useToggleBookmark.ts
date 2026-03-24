@@ -21,32 +21,35 @@ export function useToggleBookmark() {
       }
     },
     onMutate: async ({ storyId, isBookmarked }) => {
-      // Optimistic update - update UI immediately
-      await queryClient.cancelQueries({ queryKey: queryKeys.bookmarks.statuses() });
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.bookmarks.ids() });
 
-      // Update single status
-      queryClient.setQueryData(
-        queryKeys.bookmarks.status(storyId),
-        { exists: !isBookmarked, bookmark: null }
-      );
+      // Snapshot the previous value
+      const previousIds = queryClient.getQueryData<Set<number>>(queryKeys.bookmarks.ids());
 
-      // Update bulk statuses if they exist
-      const bulkQueries = queryClient.getQueriesData({ queryKey: queryKeys.bookmarks.statuses() });
-      bulkQueries.forEach(([key, data]) => {
-        if (data && typeof data === 'object' && storyId in data) {
-          queryClient.setQueryData(key, { ...data, [storyId]: !isBookmarked });
+      // Optimistically update the Set
+      queryClient.setQueryData<Set<number>>(queryKeys.bookmarks.ids(), (old) => {
+        const newSet = new Set(old || []);
+        if (isBookmarked) {
+          newSet.delete(storyId);
+        } else {
+          newSet.add(storyId);
         }
+        return newSet;
       });
 
-      return { previousValue: isBookmarked };
+      return { previousIds };
     },
     onSuccess: () => {
-      // Invalidate bookmarks list to refetch
+      // Refetch bookmarks list and IDs to ensure data consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.bookmarks.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookmarks.ids() });
     },
     onError: (_error, _variables, context) => {
       // Revert optimistic update on error
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookmarks.statuses() });
+      if (context?.previousIds) {
+        queryClient.setQueryData(queryKeys.bookmarks.ids(), context.previousIds);
+      }
     },
   });
 }

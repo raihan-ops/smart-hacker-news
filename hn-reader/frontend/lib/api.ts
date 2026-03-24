@@ -7,7 +7,6 @@ import type {
   StoriesResponse,
   CommentsResponse,
   BookmarksResponse,
-  BookmarkExistsResponse,
   SummaryResponse,
 } from '@/types';
 
@@ -154,23 +153,9 @@ export const api = {
     }
   },
 
-  async checkBookmark(storyId: number) {
+  async getAllBookmarkedIds() {
     try {
-      const { data } = await apiClient.get<ApiResponse<BookmarkExistsResponse>>(
-        `/api/bookmarks/${storyId}/exists`
-      );
-      return unwrapApiResponse(data);
-    } catch (error) {
-      handleApiError(error);
-    }
-  },
-
-  async checkMultipleBookmarks(storyIds: number[]) {
-    try {
-      const { data } = await apiClient.post<ApiResponse<Record<number, boolean>>>(
-        '/api/bookmarks/check-multiple',
-        { storyIds }
-      );
+      const { data } = await apiClient.get<ApiResponse<number[]>>('/api/bookmarks/ids');
       return unwrapApiResponse(data);
     } catch (error) {
       handleApiError(error);

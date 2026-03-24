@@ -1,20 +1,18 @@
 'use client';
 
-import { useBookmarkQuery } from '@/hooks/bookmarks/useBookmarkQuery';
+import { useBookmarkStatuses } from '@/hooks/useBookmarkStatuses';
 import { useToggleBookmark } from '@/hooks/bookmarks/useToggleBookmark';
 
 interface BookmarkButtonProps {
   storyId: number;
-  initialBookmarked?: boolean;
 }
 
-export default function BookmarkButton({ storyId, initialBookmarked }: BookmarkButtonProps) {
-  const { data, isLoading: isChecking } = useBookmarkQuery(storyId);
+export default function BookmarkButton({ storyId }: BookmarkButtonProps) {
+  const { data: bookmarkIds = new Set<number>() } = useBookmarkStatuses([storyId]);
   const toggleMutation = useToggleBookmark();
 
-  // Use initialBookmarked if provided, otherwise use query data
-  const bookmarked = initialBookmarked ?? data?.exists ?? false;
-  const loading = isChecking || toggleMutation.isPending;
+  const bookmarked = bookmarkIds.has(storyId);
+  const loading = toggleMutation.isPending;
 
   const toggleBookmark = () => {
     toggleMutation.mutate({ storyId, isBookmarked: bookmarked });

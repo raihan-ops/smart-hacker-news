@@ -70,11 +70,6 @@ export interface BookmarksResponse {
   totalPages: number;
 }
 
-export interface BookmarkExistsResponse {
-  exists: boolean;
-  bookmark: Bookmark | null;
-}
-
 export interface SummaryResponse {
   storyId: number;
   summary: string;

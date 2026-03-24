@@ -2,7 +2,7 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import { Story } from '@/types';
-import BookmarkButton from './BookmarkButton';
+import BookmarkButton from '../bookmarks/BookmarkButton';
 
 interface StoryDetailProps {
   story: Story;

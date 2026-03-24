@@ -4,9 +4,9 @@ import { StoryType } from '@/types';
 import { useStoriesPagination } from '@/hooks/useStoriesPagination';
 import { useBookmarkStatuses } from '@/hooks/useBookmarkStatuses';
 import StoryCard from './StoryCard';
-import LoadingSpinner from './LoadingSpinner';
-import ErrorMessage from './ErrorMessage';
-import Pagination from './Pagination';
+import LoadingSpinner from '../../common/LoadingSpinner';
+import ErrorMessage from '../../common/ErrorMessage';
+import Pagination from '../../common/Pagination';
 
 interface StoryListProps {
   type?: StoryType;
@@ -28,7 +28,7 @@ export default function StoryList({ type = 'top' }: StoryListProps) {
   const storyIds = stories.map((story) => story.id);
 
   // Fetch all bookmark statuses in one call (efficient!)
-  const { data: bookmarkStatuses = {} } = useBookmarkStatuses(storyIds);
+  const { data: bookmarkStatuses = new Set<number>() } = useBookmarkStatuses(storyIds);
 
   if (isLoading) {
     return (
@@ -55,7 +55,7 @@ export default function StoryList({ type = 'top' }: StoryListProps) {
             key={story.id}
             story={story}
             rank={(currentPage - 1) * 30 + index + 1}
-            isBookmarked={bookmarkStatuses[story.id] || false}
+            isBookmarked={bookmarkStatuses.has(story.id)}
           />
         ))}
       </div>

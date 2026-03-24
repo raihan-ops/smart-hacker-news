@@ -42,39 +42,6 @@ export async function listBookmarks(params: BookmarkListQuery) {
   };
 }
 
-export async function isBookmarked(storyId: number) {
-  const bookmark = await prisma.bookmark.findUnique({
-    where: { storyId },
-  });
-
-  return {
-    exists: Boolean(bookmark),
-    bookmark: bookmark ?? null,
-  };
-}
-
-export async function checkMultipleBookmarks(storyIds: number[]) {
-  if (storyIds.length === 0) {
-    return {};
-  }
-
-  const bookmarks = await prisma.bookmark.findMany({
-    where: {
-      storyId: { in: storyIds },
-    },
-    select: { storyId: true },
-  });
-
-  const bookmarkedIds = new Set(bookmarks.map((bookmark) => bookmark.storyId));
-  const result: Record<number, boolean> = {};
-
-  for (const storyId of storyIds) {
-    result[storyId] = bookmarkedIds.has(storyId);
-  }
-
-  return result;
-}
-
 export async function createBookmark(storyId: number) {
   const existing = await prisma.bookmark.findUnique({
     where: { storyId },
@@ -128,4 +95,12 @@ export async function deleteBookmark(storyId: number) {
   return {
     message: 'Bookmark deleted successfully',
   };
+}
+
+export async function getAllBookmarkedIds() {
+  const bookmarks = await prisma.bookmark.findMany({
+    select: { storyId: true },
+  });
+
+  return bookmarks.map((bookmark) => bookmark.storyId);
 }

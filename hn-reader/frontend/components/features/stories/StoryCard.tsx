@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
 import { Story } from '@/types';
 import { routes } from '@/lib/routes';
-import BookmarkButton from './BookmarkButton';
+import BookmarkButton from '../bookmarks/BookmarkButton';
 
 interface StoryCardProps {
   story: Story;

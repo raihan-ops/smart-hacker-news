@@ -24,9 +24,7 @@ export const queryKeys = {
     all: ['bookmarks'] as const,
     lists: () => [...queryKeys.bookmarks.all, 'list'] as const,
     list: (search: string, page: number) => [...queryKeys.bookmarks.lists(), search, page] as const,
-    statuses: () => [...queryKeys.bookmarks.all, 'status'] as const,
-    status: (storyId: number) => [...queryKeys.bookmarks.statuses(), storyId] as const,
-    bulkStatus: (storyIds: number[]) => [...queryKeys.bookmarks.statuses(), 'bulk', ...storyIds.sort()] as const,
+    ids: () => [...queryKeys.bookmarks.all, 'ids'] as const,
   },
 
   summary: {

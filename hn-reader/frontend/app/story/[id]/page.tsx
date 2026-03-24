@@ -2,11 +2,11 @@
 
 import { useParams } from 'next/navigation';
 import { useStory } from '@/hooks/stories/useStory';
-import StoryDetail from '@/components/StoryDetail';
-import CommentList from '@/components/CommentList';
-import SummaryPanel from '@/components/SummaryPanel';
-import ErrorMessage from '@/components/ErrorMessage';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import StoryDetail from '@/components/features/stories/StoryDetail';
+import CommentList from '@/components/features/comments/CommentList';
+import SummaryPanel from '@/components/common/SummaryPanel';
+import ErrorMessage from '@/components/common/ErrorMessage';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { ButtonLink } from '@/components/ui/Button';
 import { routes } from '@/lib/routes';
 

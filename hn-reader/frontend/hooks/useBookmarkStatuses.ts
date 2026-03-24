@@ -5,14 +5,17 @@ import { api } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 
 export function useBookmarkStatuses(storyIds: number[]) {
-  return useQuery<Record<number, boolean>>({
-    queryKey: queryKeys.bookmarks.bulkStatus(storyIds),
+  return useQuery<Set<number>>({
+    queryKey: queryKeys.bookmarks.ids(),
     queryFn: async () => {
-      if (storyIds.length === 0) return {};
-      const data = await api.checkMultipleBookmarks(storyIds);
-      return data || {};
+      const ids = await api.getAllBookmarkedIds();
+      return new Set(ids);
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
-    enabled: storyIds.length > 0,
+    select: (allIds) => {
+      // Filter to only the IDs we care about for performance
+      if (storyIds.length === 0) return new Set();
+      return allIds;
+    },
   });
 }

@@ -11,6 +11,7 @@ function startServer() {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`📊 Environment: ${config.server.nodeEnv}`);
     console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+    console.log(`📚 API Docs: http://localhost:${PORT}/api-docs`);
     console.log(`\n⚡ Ready to accept requests!`);
   });
 

@@ -8,9 +8,75 @@ import { sendSuccess } from '../utils/response';
 const router = Router();
 
 /**
- * GET /api/stories
- * Get list of stories with pagination
- * Query params: type (top|new|best), page (number), limit (number)
+ * @openapi
+ * /api/stories:
+ *   get:
+ *     tags:
+ *       - Stories
+ *     summary: Get list of stories
+ *     description: Retrieve a paginated list of Hacker News stories
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [top, new, best]
+ *           default: top
+ *         description: Type of stories to fetch
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Items per page
+ *     responses:
+ *       200:
+ *         description: Successful response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     stories:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Story'
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     type:
+ *                       type: string
+ *                       enum: [top, new, best]
+ *                     hasMore:
+ *                       type: boolean
+ *                     totalFetched:
+ *                       type: integer
+ *                     totalCount:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *       400:
+ *         description: Invalid query parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get(
   '/',
@@ -37,8 +103,38 @@ router.get(
 );
 
 /**
- * GET /api/stories/:id
- * Get a single story by ID
+ * @openapi
+ * /api/stories/{id}:
+ *   get:
+ *     tags:
+ *       - Stories
+ *     summary: Get a single story
+ *     description: Retrieve a specific story by its ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Story ID
+ *     responses:
+ *       200:
+ *         description: Story found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Story'
+ *       404:
+ *         description: Story not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get(
   '/:id',
@@ -50,12 +146,84 @@ router.get(
 );
 
 /**
- * GET /api/stories/:id/comments
- * Get comments for a story
- * Query params:
- *   - depth (number|'all') - 1 for top-level only, 'all' for full tree
- *   - limit (number) - Number of top-level comments to return (default: 20)
- *   - offset (number) - Skip first N comments (default: 0)
+ * @openapi
+ * /api/stories/{id}/comments:
+ *   get:
+ *     tags:
+ *       - Stories
+ *     summary: Get comments for a story
+ *     description: Retrieve comments for a specific story with pagination and depth control
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Story ID
+ *       - in: query
+ *         name: depth
+ *         schema:
+ *           oneOf:
+ *             - type: integer
+ *               minimum: 0
+ *             - type: string
+ *               enum: [all]
+ *           default: 1
+ *         description: Comment nesting depth (1 for top-level only, 'all' for full tree)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *           minimum: 1
+ *           maximum: 10000
+ *         description: Number of top-level comments to return
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *           minimum: 0
+ *         description: Skip first N comments for pagination
+ *     responses:
+ *       200:
+ *         description: Comments retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     story:
+ *                       $ref: '#/components/schemas/Story'
+ *                     comments:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Comment'
+ *                     commentCount:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *                     offset:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *       400:
+ *         description: Invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Story not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get(
   '/:id/comments',
@@ -80,7 +248,7 @@ router.get(
     const limit = parseBoundedIntQuery(req.query.limit, {
       defaultValue: 20,
       min: 1,
-      max: 100,
+      max: 10000,
       label: 'limit',
     });
     const offset = parseNonNegativeIntQuery(req.query.offset, 0, 'offset');
@@ -91,8 +259,69 @@ router.get(
 );
 
 /**
- * GET /api/stories/:id/comments/:commentId/replies
- * Get replies for a specific comment (lazy loading)
+ * @openapi
+ * /api/stories/{id}/comments/{commentId}/replies:
+ *   get:
+ *     tags:
+ *       - Stories
+ *     summary: Get replies for a specific comment
+ *     description: Lazy load replies for a comment (used for infinite scroll)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Story ID
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Comment ID
+ *       - in: query
+ *         name: depth
+ *         schema:
+ *           oneOf:
+ *             - type: integer
+ *               minimum: 0
+ *             - type: string
+ *               enum: [all]
+ *           default: 1
+ *         description: Reply nesting depth
+ *     responses:
+ *       200:
+ *         description: Replies retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     commentId:
+ *                       type: integer
+ *                     replies:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Comment'
+ *                     count:
+ *                       type: integer
+ *       400:
+ *         description: Invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Comment not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get(
   '/:id/comments/:commentId/replies',

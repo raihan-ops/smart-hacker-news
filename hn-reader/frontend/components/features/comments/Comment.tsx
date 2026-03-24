@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Comment as CommentType } from '@/types';
 import { api } from '@/lib/api';
-import { Button } from './ui/Button';
+import { Button } from '../../ui/Button';
 
 interface CommentProps {
   comment: CommentType;

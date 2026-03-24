@@ -2,10 +2,9 @@ import { Router, Request, Response } from 'express';
 import { AppError } from '../errors/AppError';
 import { asyncHandler } from '../middleware/asyncHandler';
 import {
-  checkMultipleBookmarks,
   createBookmark,
   deleteBookmark,
-  isBookmarked,
+  getAllBookmarkedIds,
   listBookmarks,
 } from '../services/bookmarkService';
 import { parseBoundedIntQuery, parseIntParam, readSingleValue } from '../utils/request';
@@ -14,9 +13,61 @@ import { sendSuccess } from '../utils/response';
 const router = Router();
 
 /**
- * GET /api/bookmarks
- * Get all bookmarks with optional search
- * Query params: search (string), page (number), limit (number)
+ * @openapi
+ * /api/bookmarks:
+ *   get:
+ *     tags:
+ *       - Bookmarks
+ *     summary: Get all bookmarks
+ *     description: Retrieve a paginated list of bookmarks with optional search
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search query for title or author
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *           minimum: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Items per page
+ *     responses:
+ *       200:
+ *         description: Successful response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     bookmarks:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Bookmark'
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     total:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *                     totalPages:
+ *                       type: integer
  */
 router.get(
   '/',
@@ -41,41 +92,87 @@ router.get(
 );
 
 /**
- * GET /api/bookmarks/:storyId/exists
- * Check if a story is bookmarked
+ * @openapi
+ * /api/bookmarks/ids:
+ *   get:
+ *     tags:
+ *       - Bookmarks
+ *     summary: Get all bookmarked story IDs
+ *     description: Returns an array of all bookmarked story IDs
+ *     responses:
+ *       200:
+ *         description: Array of bookmarked story IDs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: integer
  */
 router.get(
-  '/:storyId/exists',
+  '/ids',
   asyncHandler(async (req: Request, res: Response) => {
-    const storyId = parseIntParam(req.params.storyId, 'story ID');
-    const result = await isBookmarked(storyId);
+    const result = await getAllBookmarkedIds();
     sendSuccess(res, result);
   })
 );
 
 /**
- * POST /api/bookmarks/check-multiple
- * Check multiple stories for bookmark status
- * Body: { storyIds: number[] }
- */
-router.post(
-  '/check-multiple',
-  asyncHandler(async (req: Request, res: Response) => {
-    const { storyIds } = req.body as { storyIds?: unknown };
-
-    if (!Array.isArray(storyIds) || storyIds.some((id) => typeof id !== 'number')) {
-      throw new AppError(400, 'Invalid request body. storyIds must be an array of numbers', 'INVALID_BODY');
-    }
-
-    const result = await checkMultipleBookmarks(storyIds as number[]);
-    sendSuccess(res, result);
-  })
-);
-
-/**
- * POST /api/bookmarks
- * Create a new bookmark
- * Body: { storyId: number }
+ * @openapi
+ * /api/bookmarks:
+ *   post:
+ *     tags:
+ *       - Bookmarks
+ *     summary: Create a bookmark
+ *     description: Create a new bookmark for a story
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - storyId
+ *             properties:
+ *               storyId:
+ *                 type: integer
+ *                 description: Story ID to bookmark
+ *     responses:
+ *       201:
+ *         description: Bookmark created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                     bookmark:
+ *                       $ref: '#/components/schemas/Bookmark'
+ *       200:
+ *         description: Story already bookmarked
+ *       400:
+ *         description: Invalid request body
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Story not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.post(
   '/',
@@ -99,8 +196,41 @@ router.post(
 );
 
 /**
- * DELETE /api/bookmarks/:storyId
- * Delete a bookmark by story ID
+ * @openapi
+ * /api/bookmarks/{storyId}:
+ *   delete:
+ *     tags:
+ *       - Bookmarks
+ *     summary: Delete a bookmark
+ *     description: Delete a bookmark by story ID
+ *     parameters:
+ *       - in: path
+ *         name: storyId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Story ID to unbookmark
+ *     responses:
+ *       200:
+ *         description: Bookmark deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *       404:
+ *         description: Bookmark not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.delete(
   '/:storyId',
