@@ -1,5 +1,7 @@
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Mistral } from '@mistralai/mistralai';
+import Groq from 'groq-sdk';
 import { config } from '../config/env';
 import { Comment, SummaryResult } from '../types';
 import { flattenComments, stripHtml } from '../utils/helpers';
@@ -9,15 +11,41 @@ const aiProvider = config.ai.provider;
 
 let openai: OpenAI | null = null;
 let gemini: GoogleGenerativeAI | null = null;
+let mistral: Mistral | null = null;
+let groq: Groq | null = null;
 
-if (aiProvider === 'openai') {
-  openai = new OpenAI({
-    apiKey: config.ai.openai.apiKey,
-  });
+// Initialize all available providers for auto mode
+const initializeProviders = () => {
+  if (config.ai.openai.apiKey) {
+    openai = new OpenAI({ apiKey: config.ai.openai.apiKey });
+  }
+  if (config.ai.gemini.apiKey) {
+    gemini = new GoogleGenerativeAI(config.ai.gemini.apiKey);
+  }
+  if (config.ai.mistral.apiKey) {
+    mistral = new Mistral({ apiKey: config.ai.mistral.apiKey });
+  }
+  if (config.ai.groq.apiKey) {
+    groq = new Groq({ apiKey: config.ai.groq.apiKey });
+  }
+};
+
+// Initialize based on provider mode
+if (aiProvider === 'auto') {
+  initializeProviders();
+  console.log(`🤖 AI Provider: AUTO mode (${config.ai.autoProviders.join(' → ')})`);
+} else if (aiProvider === 'openai') {
+  openai = new OpenAI({ apiKey: config.ai.openai.apiKey });
   console.log(`🤖 AI Provider: OpenAI (${config.ai.openai.model})`);
 } else if (aiProvider === 'gemini') {
   gemini = new GoogleGenerativeAI(config.ai.gemini.apiKey);
   console.log(`🤖 AI Provider: Google Gemini (${config.ai.gemini.model})`);
+} else if (aiProvider === 'mistral') {
+  mistral = new Mistral({ apiKey: config.ai.mistral.apiKey });
+  console.log(`🤖 AI Provider: Mistral AI (${config.ai.mistral.model})`);
+} else if (aiProvider === 'groq') {
+  groq = new Groq({ apiKey: config.ai.groq.apiKey });
+  console.log(`🤖 AI Provider: Groq (${config.ai.groq.model})`);
 }
 
 const SYSTEM_PROMPT = `You are analyzing a Hacker News discussion. Based on the comments provided, generate:
@@ -34,8 +62,9 @@ Format your response as JSON:
 }`;
 
 const GEMINI_TIMEOUT_MS = parseInt(process.env.GEMINI_TIMEOUT_MS || '60000', 10);
-const SUMMARY_CHUNK_CHARS = parseInt(process.env.SUMMARY_CHUNK_CHARS || '9000', 10);
-const MAX_SUMMARY_CHUNKS = parseInt(process.env.MAX_SUMMARY_CHUNKS || '24', 10);
+// Optimized chunking: larger chunks = fewer API calls while processing ALL comments
+const SUMMARY_CHUNK_CHARS = parseInt(process.env.SUMMARY_CHUNK_CHARS || '15000', 10); // Increased from 9000
+const MAX_SUMMARY_CHUNKS = parseInt(process.env.MAX_SUMMARY_CHUNKS || '50', 10); // Increased from 24
 
 function buildCommentLines(comments: Comment[]): string[] {
   const flatComments = flattenComments(comments);
@@ -199,7 +228,8 @@ async function summarizeWithOpenAI(commentsText: string): Promise<SummaryResult>
     throw new Error('No response from OpenAI');
   }
 
-  return JSON.parse(responseText) as SummaryResult;
+  const rawResponse = JSON.parse(responseText);
+  return normalizeSummaryResult(rawResponse);
 }
 
 /**
@@ -238,7 +268,71 @@ async function summarizeWithGemini(commentsText: string): Promise<SummaryResult>
   return parseGeminiSummaryResponse(responseText, config.ai.gemini.model);
 }
 
+/**
+ * Summarize discussion using Mistral AI
+ */
+async function summarizeWithMistral(commentsText: string): Promise<SummaryResult> {
+  if (!mistral) {
+    throw new Error('Mistral client not initialized');
+  }
+
+  const completion = await mistral.chat.complete({
+    model: config.ai.mistral.model,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: `Comments:\n\n${commentsText}` },
+    ],
+    temperature: 0.7,
+    maxTokens: 500,
+    responseFormat: { type: 'json_object' },
+  });
+
+  const responseText = completion.choices?.[0]?.message?.content;
+
+  if (!responseText || typeof responseText !== 'string') {
+    throw new Error('No response from Mistral');
+  }
+
+  const rawResponse = JSON.parse(extractLikelyJsonObject(responseText));
+  return normalizeSummaryResult(rawResponse);
+}
+
+/**
+ * Summarize discussion using Groq
+ */
+async function summarizeWithGroq(commentsText: string): Promise<SummaryResult> {
+  if (!groq) {
+    throw new Error('Groq client not initialized');
+  }
+
+  const completion = await groq.chat.completions.create({
+    model: config.ai.groq.model,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: `Comments:\n\n${commentsText}` },
+    ],
+    temperature: 0.7,
+    max_tokens: 500,
+    response_format: { type: 'json_object' },
+  });
+
+  const responseText = completion.choices?.[0]?.message?.content;
+
+  if (!responseText) {
+    throw new Error('No response from Groq');
+  }
+
+  const rawResponse = JSON.parse(extractLikelyJsonObject(responseText));
+  return normalizeSummaryResult(rawResponse);
+}
+
 async function summarizeText(commentsText: string): Promise<SummaryResult> {
+  // Auto mode: try providers in order until one succeeds
+  if (aiProvider === 'auto') {
+    return summarizeWithAutoFallback(commentsText);
+  }
+
+  // Single provider mode
   if (aiProvider === 'openai') {
     return summarizeWithOpenAI(commentsText);
   }
@@ -247,7 +341,81 @@ async function summarizeText(commentsText: string): Promise<SummaryResult> {
     return summarizeWithGemini(commentsText);
   }
 
+  if (aiProvider === 'mistral') {
+    return summarizeWithMistral(commentsText);
+  }
+
+  if (aiProvider === 'groq') {
+    return summarizeWithGroq(commentsText);
+  }
+
   throw new Error(`Unsupported AI provider: ${aiProvider}`);
+}
+
+/**
+ * Auto mode: Try providers in order with automatic fallback
+ */
+async function summarizeWithAutoFallback(commentsText: string): Promise<SummaryResult> {
+  const providers = config.ai.autoProviders;
+  const errors: Array<{ provider: string; error: string }> = [];
+
+  for (const provider of providers) {
+    try {
+      console.log(`🔄 Attempting provider: ${provider}`);
+
+      let result: SummaryResult;
+
+      switch (provider) {
+        case 'mistral':
+          if (!mistral) throw new Error('Mistral not configured');
+          result = await summarizeWithMistral(commentsText);
+          break;
+        case 'groq':
+          if (!groq) throw new Error('Groq not configured');
+          result = await summarizeWithGroq(commentsText);
+          break;
+        case 'gemini':
+          if (!gemini) throw new Error('Gemini not configured');
+          result = await summarizeWithGemini(commentsText);
+          break;
+        case 'openai':
+          if (!openai) throw new Error('OpenAI not configured');
+          result = await summarizeWithOpenAI(commentsText);
+          break;
+        default:
+          throw new Error(`Unknown provider: ${provider}`);
+      }
+
+      console.log(`✅ Success with provider: ${provider}`);
+      return result;
+    } catch (error: any) {
+      const errorMsg = error?.message || String(error);
+      console.warn(`⚠️ ${provider} failed: ${errorMsg}`);
+      errors.push({ provider, error: errorMsg });
+
+      // If it's a rate limit or quota error, try next provider
+      if (
+        errorMsg.includes('rate limit') ||
+        errorMsg.includes('quota') ||
+        errorMsg.includes('429') ||
+        errorMsg.includes('503')
+      ) {
+        continue;
+      }
+
+      // If provider is not configured, try next
+      if (errorMsg.includes('not configured') || errorMsg.includes('not initialized')) {
+        continue;
+      }
+
+      // For other errors (invalid response, timeout, etc.), try next provider
+      continue;
+    }
+  }
+
+  // All providers failed
+  const errorSummary = errors.map((e) => `${e.provider}: ${e.error}`).join('; ');
+  throw new Error(`All AI providers failed. Errors: ${errorSummary}`);
 }
 
 async function summarizeHierarchically(comments: Comment[]): Promise<SummaryResult> {
@@ -257,7 +425,10 @@ async function summarizeHierarchically(comments: Comment[]): Promise<SummaryResu
     throw new Error('No valid comments to summarize');
   }
 
+  console.log(`📊 Processing ${lines.length} comment lines from ${comments.length} comments`);
+
   const chunks = chunkLines(lines, SUMMARY_CHUNK_CHARS);
+  console.log(`📦 Split into ${chunks.length} chunks for processing`);
 
   if (chunks.length === 1) {
     return summarizeText(chunks[0]);
@@ -265,28 +436,48 @@ async function summarizeHierarchically(comments: Comment[]): Promise<SummaryResu
 
   if (chunks.length > MAX_SUMMARY_CHUNKS) {
     throw new Error(
-      `Discussion is too large to summarize in one pass (${chunks.length} chunks). Increase MAX_SUMMARY_CHUNKS.`
+      `Discussion is too large to summarize (${chunks.length} chunks, max ${MAX_SUMMARY_CHUNKS}). Consider increasing MAX_SUMMARY_CHUNKS or SUMMARY_CHUNK_CHARS.`
     );
   }
 
-  const partials: SummaryResult[] = [];
-  for (let i = 0; i < chunks.length; i++) {
-    const partial = await summarizeText(chunks[i]);
-    partials.push(normalizeSummaryResult(partial));
+  // Tree-based reduction: summarize in batches to reduce API calls
+  const BATCH_SIZE = 4; // Combine 4 summaries at a time
+  let currentLevel = chunks;
+
+  while (currentLevel.length > 1) {
+    console.log(`🔄 Processing level with ${currentLevel.length} items...`);
+    const nextLevel: string[] = [];
+
+    // Process in batches
+    for (let i = 0; i < currentLevel.length; i += BATCH_SIZE) {
+      const batch = currentLevel.slice(i, i + BATCH_SIZE);
+
+      if (batch.length === 1) {
+        // If single chunk, summarize directly
+        const partial = await summarizeText(batch[0]);
+        nextLevel.push(formatPartialSummary(partial));
+      } else {
+        // Combine batch and summarize together
+        const combinedBatch = batch.join('\n\n---\n\n');
+        const partial = await summarizeText(combinedBatch);
+        nextLevel.push(formatPartialSummary(partial));
+      }
+    }
+
+    currentLevel = nextLevel;
   }
 
-  const combinedText = partials
-    .map((partial, index) => {
-      const points = partial.key_points.map((point) => `- ${point}`).join('\n');
-      return `Chunk ${index + 1}:\nSummary: ${partial.summary}\nKey Points:\n${points}\nSentiment: ${partial.sentiment}`;
-    })
-    .join('\n\n');
+  // Final summary from the last level
+  // currentLevel[0] is now a formatted summary string
+  const finalPrompt =
+    'You are given a summary of a Hacker News discussion. Produce a final polished JSON summary.\n\n' +
+    currentLevel[0];
+  return summarizeText(finalPrompt);
+}
 
-  const reducePrompt =
-    'You are given summaries of all chunks from a single Hacker News discussion. Produce one final merged JSON summary that captures the full discussion and avoids repetition.\n\n' +
-    combinedText;
-
-  return summarizeText(reducePrompt);
+function formatPartialSummary(partial: SummaryResult): string {
+  const points = partial.key_points.map((point) => `- ${point}`).join('\n');
+  return `Summary: ${partial.summary}\nKey Points:\n${points}\nSentiment: ${partial.sentiment}`;
 }
 
 /**
@@ -296,7 +487,7 @@ export async function summarizeDiscussion(comments: Comment[]): Promise<SummaryR
   try {
     const result = await summarizeHierarchically(comments);
 
-    return normalizeSummaryResult(result);
+    return result;
   } catch (error) {
     console.error('Error summarizing discussion:', error);
 

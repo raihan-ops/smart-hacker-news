@@ -19,6 +19,22 @@
   --prose-links: #f97316;
 }
 
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-orange-hn: var(--orange-hn);
+  --color-brand: var(--brand);
+  --color-brand-600: var(--brand-600);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-muted: var(--surface-muted);
+  --color-border-muted: var(--border-muted);
+  --color-border-strong: var(--border-strong);
+  --color-prose-body: var(--prose-body);
+  --color-prose-headings: var(--prose-headings);
+  --color-prose-links: var(--prose-links);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -27,11 +43,16 @@
 }
 
 body {
-  background:
+  background: #f1f5f9;
+  /* background:
     radial-gradient(1200px 480px at 10% -10%, rgba(255, 102, 0, 0.08), transparent 60%),
-    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); */
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+button {
+  cursor: pointer;
 }
 
 .page-shell {

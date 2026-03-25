@@ -50,7 +50,7 @@ export default function StoryCard({ story, rank, isBookmarked }: StoryCardProps)
               )}
             </h2>
             <div onClick={(event) => event.stopPropagation()}>
-              <BookmarkButton storyId={story.id} initialBookmarked={isBookmarked} />
+              <BookmarkButton storyId={story.id}  />
             </div>
           </div>
 
