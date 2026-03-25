@@ -2,6 +2,20 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Parse CORS origins - support comma-separated list
+const parseCorsOrigins = (corsOriginEnv: string): string | string[] => {
+  if (!corsOriginEnv) {
+    return 'http://localhost:3000';
+  }
+  
+  // If comma-separated, split into array
+  if (corsOriginEnv.includes(',')) {
+    return corsOriginEnv.split(',').map(origin => origin.trim());
+  }
+  
+  return corsOriginEnv;
+};
+
 export const config = {
   database: {
     url: process.env.DATABASE_URL || '',
@@ -33,7 +47,7 @@ export const config = {
   server: {
     port: parseInt(process.env.PORT || '8000', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
-    corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    corsOrigin: parseCorsOrigins(process.env.CORS_ORIGIN || 'http://localhost:3000'),
   },
 };
 
