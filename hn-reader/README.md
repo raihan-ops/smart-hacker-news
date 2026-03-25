@@ -2,6 +2,9 @@
 
 This repository is intentionally scoped for engineering quality in a small surface area, not for production hardening.
 
+# Here is the link for env keys
+https://docs.google.com/document/d/1w6KzCLKIDCOaAvRbKAN-lc91pwLnnYFHNANgCTHgKh8/edit?usp=sharing
+
 ## Submission Checklist
 
 1. README requirements
