@@ -4,17 +4,13 @@ This repository is intentionally scoped for engineering quality in a small surfa
 
 ## Submission Checklist
 
-1. GitHub Repository
-- Use this repository as the submission.
-- If private, invite adar2378.
-
-2. README requirements
+1. README requirements
 - Setup instructions: included below.
 - Approach and architecture decisions: included below.
 - Tradeoffs: included below.
 - Improvements with more time: included below.
 
-3. Docker requirement
+2. Docker requirement
 - First evaluation step:
 
 ```bash
