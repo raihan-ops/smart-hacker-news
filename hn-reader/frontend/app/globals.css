@@ -83,6 +83,8 @@ button {
 .prose a {
   color: var(--prose-links);
   text-decoration: underline;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .prose blockquote {

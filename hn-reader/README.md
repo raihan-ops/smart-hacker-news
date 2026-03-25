@@ -1,231 +1,214 @@
-# Smart Hacker News Reader
+# HN Reader - Engineering Assessment Submission
 
-AI-powered Hacker News client with discussion summaries using OpenAI.
+This repository is intentionally scoped for engineering quality in a small surface area, not for production hardening.
 
-## 🚀 Quick Start
+## Submission Checklist
 
-### Prerequisites
-- Node.js 20+
-- Docker & Docker Compose
-- Neon PostgreSQL account (free): https://neon.tech
-- OpenAI API key: https://platform.openai.com/api-keys
+1. GitHub Repository
+- Use this repository as the submission.
+- If private, invite adar2378.
 
-### Setup Instructions
+2. README requirements
+- Setup instructions: included below.
+- Approach and architecture decisions: included below.
+- Tradeoffs: included below.
+- Improvements with more time: included below.
 
-1. **Clone the repository** (or you're already here!)
+3. Docker requirement
+- First evaluation step:
 
-2. **Get your Neon PostgreSQL connection string**:
-   - Go to https://neon.tech
-   - Sign up (free, no credit card)
-   - Create a new project named `hn-reader`
-   - Copy your connection string (looks like: `postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech/hn_reader?sslmode=require`)
-
-3. **Create environment files**:
-
-   Backend (`.env`):
-   ```bash
-   cd backend
-   cp .env.example .env
-   ```
-
-   Edit `backend/.env` and add:
-   - Your Neon `DATABASE_URL`
-   - Your `OPENAI_API_KEY`
-
-   Frontend (`.env.local`):
-   ```bash
-   cd frontend
-   cp .env.example .env.local
-   ```
-
-4. **Run the application**:
-   ```bash
-   docker-compose up --build
-   ```
-
-5. **Access the app**:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - API Health Check: http://localhost:8000/health
-
-### Alternative: Local Development Without Docker
-
-**Backend**:
 ```bash
-cd backend
-npm install
-npx prisma generate
-npx prisma db push  # Creates tables in Neon
-npm run dev
+docker-compose up
 ```
 
-**Frontend**:
+## Setup
+
+Prerequisites:
+- Docker Desktop (or Docker Engine + Docker Compose)
+
+Steps:
+
 ```bash
-cd frontend
-npm install
-npm run dev
+git clone <repo-url>
+cd hn-reader
 ```
 
----
+Create backend environment file at backend/.env:
 
-## 📊 Tech Stack
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/hn_reader"
 
-### Backend
-- **Express.js** with TypeScript
-- **Prisma** ORM for database access
-- **PostgreSQL** (Neon cloud database)
-- **OpenAI API** (GPT-4o-mini) for AI summaries
-- **Axios** for HTTP requests
-- **Zod** for validation
+# AI provider selection: openai | gemini | mistral | groq | auto
+AI_PROVIDER="gemini"
 
-### Frontend
-- **Next.js 15** (App Router)
-- **React 19** with TypeScript
-- **Tailwind CSS** for styling
-- **Axios** for API calls
-- **date-fns** for time formatting
+# Configure keys for the provider(s) you use
+GEMINI_API_KEY="your-key"
+OPENAI_API_KEY=""
+MISTRAL_API_KEY=""
+GROQ_API_KEY=""
 
-### Infrastructure
-- **Docker Compose** for orchestration
-- **Neon PostgreSQL** (serverless cloud database)
+# Optional model and fallback controls
+OPENAI_MODEL="gpt-4o-mini"
+GEMINI_MODEL="gemini-2.5-flash"
+MISTRAL_MODEL="open-mistral-7b"
+GROQ_MODEL="llama-3.1-8b-instant"
+AUTO_PROVIDERS="mistral,groq,gemini"
 
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────┐      ┌─────────────┐      ┌─────────────┐
-│   Next.js   │─────▶│   Express   │─────▶│  Hacker     │
-│   Frontend  │      │   Backend   │      │  News API   │
-└─────────────┘      └─────────────┘      └─────────────┘
-                            │
-                            ├─────────▶ Neon PostgreSQL
-                            │
-                            └─────────▶ OpenAI API
+# Optional timeout/chunk controls
+GEMINI_TIMEOUT_MS=60000
+SUMMARY_CHUNK_CHARS=15000
+MAX_SUMMARY_CHUNKS=50
 ```
 
-### Key Design Decisions
+Run:
 
-1. **Neon PostgreSQL (Cloud)**:
-   - No local database setup needed
-   - Serverless, auto-scaling
-   - Free tier sufficient for development
-   - Easy connection string management
+```bash
+docker-compose up
+```
 
-2. **Separate Backend + Frontend**:
-   - Clean separation of concerns
-   - Backend handles business logic, AI calls, database
-   - Frontend focuses on UI/UX
-   - Easy to scale independently
+Endpoints:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- Swagger docs: http://localhost:8000/api-docs
+- Health: http://localhost:8000/health
 
-3. **Prisma ORM**:
-   - Type-safe database access
-   - Auto-generated TypeScript types
-   - Easy migrations
-   - Excellent developer experience
+## Problem Approach And Prioritization
 
-4. **OpenAI GPT-4o-mini**:
-   - Cost-effective ($0.150/1M input tokens)
-   - Fast response times
-   - Excellent summarization quality
-   - Better error handling than local models
+Priorities used:
+- Deliver core user value first: read stories, inspect comments, save bookmarks.
+- Add AI summary as an enhancement with graceful degradation and caching.
+- Keep architecture clean and layered so each concern is easy to reason about.
+- Optimize for evaluator readability: clear routes, small services, typed responses.
 
----
+Execution breakdown:
+- Backend-first API contract and data model.
+- Frontend integration with typed API client and React Query for server state.
+- Reliability pass: input validation, structured errors, timeout handling, fallback behavior.
 
-## 🔌 API Endpoints
+## Backend And API Design
 
-### Stories
-- `GET /api/stories?type=top&page=1&limit=30` - List stories
-- `GET /api/stories/:id` - Get single story
-- `GET /api/stories/:id/comments` - Get story comments
+Design decisions:
+- Layering: routes for HTTP concerns, services for business logic, middleware for cross-cutting concerns.
+- Validation and parsing: request helpers enforce numeric bounds and query normalization.
+- Error model: custom AppError with status code and internal error code; centralized error middleware returns a consistent envelope.
+- Data modeling: only persisted data is what is needed for product behavior and performance (bookmarks and summary cache).
+- API style: stable REST endpoints with pagination and explicit query controls.
 
-### Bookmarks
-- `POST /api/bookmarks` - Save bookmark
-- `GET /api/bookmarks?search=&page=1` - List bookmarks
-- `DELETE /api/bookmarks/:storyId` - Remove bookmark
-- `GET /api/bookmarks/:storyId/exists` - Check if bookmarked
+Main API endpoints:
+- GET /api/stories?type=top|new|best&page=1&limit=30
+- GET /api/stories/:id
+- GET /api/stories/:id/comments?depth=1|all&limit=20&offset=0
+- GET /api/stories/:id/comments/:commentId/replies?depth=1|all
+- GET /api/bookmarks?search=&page=1&limit=30
+- GET /api/bookmarks/ids
+- POST /api/bookmarks
+- DELETE /api/bookmarks/:storyId
+- POST /api/summarize/:storyId
+- GET /api/summarize/:storyId
 
-### AI Summarization
-- `POST /api/summarize/:storyId` - Generate AI summary
+API structure diagram:
 
----
+```mermaid
+flowchart LR
+   UI[Next.js Frontend] --> API[Express API]
+   API --> R1[Stories Routes]
+   API --> R2[Bookmarks Routes]
+   API --> R3[Summarize Routes]
 
-## ⚠️ Tradeoffs
+   R1 --> S1[Story Service]
+   R2 --> S2[Bookmark Service]
+   R3 --> S3[Summary Service]
 
-### What Was Prioritized:
-- **Speed of development**: Chose familiar technologies
-- **Type safety**: TypeScript everywhere
-- **Cloud database**: No local setup hassle
-- **Simple architecture**: Easy to understand and modify
+   S1 --> HN[Hacker News API]
+   S3 --> HN
+   S2 --> DB[(PostgreSQL)]
+   S3 --> DB
+   S3 --> AI[AI Service]
+   AI --> P1[OpenAI]
+   AI --> P2[Gemini]
+   AI --> P3[Mistral]
+   AI --> P4[Groq]
+```
 
-### What Was Simplified:
-- **Caching**: Not implemented (future: Redis)
-- **Rate limiting**: Basic implementation
-- **Authentication**: Not required for this project
-- **Tests**: Not included (time constraint)
-- **Advanced features**: Comment collapsing, pagination could be improved
+## AI Integration
 
----
+Prompt design:
+- Uses a structured system instruction requiring strict JSON output:
+- summary (2-3 sentences)
+- key_points (3-5 items)
+- sentiment (positive, negative, mixed, neutral)
 
-## 🚧 Future Improvements
+Edge-case handling:
+- Provider abstraction supports OpenAI, Gemini, Mistral, and Groq.
+- Auto mode tries providers in configured order until one succeeds.
+- Handles malformed model output by extracting JSON and normalizing schema.
+- Adds a repair step for Gemini output when JSON parsing fails.
+- Applies timeout control for long requests.
+- Maps rate-limit and quota errors to clear API responses.
+- Summaries are cached in database by storyId to avoid repeated AI calls.
+- Large comment trees are chunked and reduced hierarchically to stay within model limits.
 
-If I had more time, I would add:
+## Frontend
 
-- **Caching Layer**: Redis for HN API responses and AI summaries
-- **Queue System**: Bull/BullMQ for async AI processing
-- **Better Search**: Full-text search with PostgreSQL `tsvector`
-- **Summary Persistence**: Cache AI summaries in database
-- **Rate Limiting**: express-rate-limit for API protection
-- **Error Monitoring**: Sentry integration
-- **Analytics**: Track popular stories, summary requests
-- **Comment Threading**: Better UI for nested comments
-- **Dark Mode**: System-aware theme switching
-- **PWA Support**: Offline functionality
-- **Real-time Updates**: WebSocket for new stories
-- **User Preferences**: Customizable summary length, detail level
-- **Export Feature**: Export bookmarks as JSON/CSV
-- **Tests**: Unit and integration tests
+Component and state approach:
+- App Router based pages for list, story detail, and bookmarks.
+- Feature-oriented components under components/features for stories, comments, bookmarks, search.
+- React Query for server-state caching, stale time control, retries, and pagination.
+- Typed Axios API client centralizes request and error handling.
+- URL query parameters control story type and preserve navigation state.
 
----
+Usability decisions:
+- Fast top-level browsing with paginated/infinite data fetching.
+- Comment exploration supports depth controls and lazy reply loading.
+- Clear loading and error states for async operations.
+- Summary generation endpoint supports longer timeout on the client side.
 
-## 🐛 Troubleshooting
+## ERD
 
-### Database Connection Error
-- Verify your `DATABASE_URL` in `backend/.env`
-- Check Neon dashboard that database is active
-- Ensure connection string includes `?sslmode=require`
+```mermaid
+erDiagram
+   BOOKMARKS {
+      int id PK
+      int story_id UK
+      string title
+      string url
+      string author
+      int points
+      int comment_count
+      datetime created_at
+      datetime bookmarked_at
+   }
 
-### OpenAI API Error
-- Verify your `OPENAI_API_KEY` is correct
-- Check you have credits in your OpenAI account
-- Rate limiting: Wait a few seconds and try again
+   SUMMARIES {
+      int id PK
+      int story_id UK
+      text summary_text
+      json key_points
+      string sentiment
+      datetime created_at
+   }
+```
 
-### Docker Issues
-- Ensure Docker Desktop is running
-- Try: `docker-compose down -v && docker-compose up --build`
-- Check logs:  `docker-compose logs backend` or `docker-compose logs frontend`
+Note:
+- Stories and comments are sourced from Hacker News and not persisted locally.
+- Bookmark and summary entities are related conceptually by shared story_id, without a strict foreign key because source-of-truth story data is external.
 
-### Port Already in Use
-- Change ports in `docker-compose.yml` if 3000 or 8000 are taken
-- Or stop conflicting services
+## Tradeoffs
 
----
+- No authentication or multi-user ownership model was added to keep scope focused.
+- Summary cache does not currently implement TTL or invalidation strategy.
+- Relying on external Hacker News API can affect consistency and latency.
+- Auto-provider fallback improves robustness but can increase complexity in failure analysis.
+- Docker setup prioritizes fast local evaluation over production deployment patterns.
 
-## 📝 Notes
+## What I Would Improve With More Time
 
-- **First run**: Prisma will automatically create database tables when backend starts
-- **AI costs**: GPT-4o-mini is very cheap (~$0.15 per million tokens)
-- **HN API**: No rate limiting, completely free
-- **Docker**: Volumes are mounted for hot-reload during development
+- Add user accounts and per-user bookmarks.
+- Add database container and migrations inside docker-compose for true one-command full stack bootstrap.
+- Introduce observability (structured logs, metrics, tracing).
+- Add stronger test coverage (integration tests for routes and AI service mocks).
+- Add rate limiting and request budget controls for summary endpoints.
+- Add summary TTL and background refresh strategy.
+- Harden prompt and moderation rules for abusive or low-signal comment sets.
+- Improve accessibility and keyboard navigation in UI components.
 
----
-
-## 👤 Author
-
-Built with ❤️ using Claude Code
-
----
-
-## 📄 License
-
-MIT
