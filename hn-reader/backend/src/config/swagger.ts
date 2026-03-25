@@ -1,6 +1,32 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import { config } from './env';
 
+// Build servers array based on environment
+const servers: Array<{ url: string; description: string }> = [];
+
+// Add development server for local testing
+servers.push({
+  url: `http://localhost:${config.server.port}`,
+  description: 'Development server',
+});
+
+// Add production server URL if provided via environment variable
+const prodApiUrl = process.env.API_URL;
+if (prodApiUrl) {
+  servers.push({
+    url: prodApiUrl,
+    description: 'Production server',
+  });
+}
+
+// Fallback: if no API_URL provided but in production, derive from request
+if (servers.length === 1 && config.server.nodeEnv === 'production') {
+  servers.push({
+    url: 'https://smart-hacker-news-production.up.railway.app',
+    description: 'Production server',
+  });
+}
+
 const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
@@ -12,12 +38,7 @@ const options: swaggerJsdoc.Options = {
         name: 'API Support',
       },
     },
-    servers: [
-      {
-        url: `http://localhost:${config.server.port}`,
-        description: 'Development server',
-      },
-    ],
+    servers: servers,
     tags: [
       {
         name: 'Stories',

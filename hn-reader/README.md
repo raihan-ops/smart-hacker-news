@@ -66,11 +66,20 @@ Run:
 docker-compose up
 ```
 
-Endpoints:
+## Local Endpoints
+
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - Swagger docs: http://localhost:8000/api-docs
 - Health: http://localhost:8000/health
+
+## Deployed Endpoints
+
+- **Frontend**: https://frontend-seven-woad-39.vercel.app
+  - Bookmarks: https://frontend-seven-woad-39.vercel.app/bookmarks
+- **Backend API**: https://smart-hacker-news-production.up.railway.app
+- **API Documentation**: https://smart-hacker-news-production.up.railway.app/api-docs
+- **Health Check**: https://smart-hacker-news-production.up.railway.app/health
 
 ## Problem Approach And Prioritization
 
